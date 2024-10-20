@@ -13,3 +13,5 @@ This project is a concurrent stock market simulation where companies can create 
 
 ## Market:
 - Get a list of all current stock offers in the market.
+
+![Diagram](src/cebp.drawio.png)
