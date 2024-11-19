@@ -20,6 +20,48 @@ public class UserController {
     @Autowired
     private FirebaseService firebaseService;
 
+    @PostMapping("/login")
+    public CompletableFuture<Boolean> loginUser(@RequestBody Map<String, String> credentials) {
+        String username = credentials.get("username");
+        String password = credentials.get("password");
+
+        if (username == null || password == null) {
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
+            future.complete(false);
+            return future;
+        }
+
+        DatabaseReference ref = firebaseService.getDatabase().child("users");
+        CompletableFuture<Boolean> loginResult = new CompletableFuture<>();
+
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                boolean found = false;
+
+                if (snapshot.exists()) {
+                    for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                        User user = userSnapshot.getValue(User.class);
+                        if (user != null && username.equals(user.getUsername()) && password.equals(user.getPassword())) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                loginResult.complete(found);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                loginResult.complete(false); // Return false if there's an error during the database operation
+            }
+        });
+
+        return loginResult;
+    }
+
+
     @PostMapping("/create")
     public String createUser(@RequestBody User user) {
         String id = UUID.randomUUID().toString();
@@ -28,7 +70,7 @@ public class UserController {
         DatabaseReference ref = firebaseService.getDatabase().child("users").child(id);
         ref.setValueAsync(user);
 
-        return "User created with ID: " + id;
+        return "User created with id: " + id;
     }
 
     @GetMapping("/all")

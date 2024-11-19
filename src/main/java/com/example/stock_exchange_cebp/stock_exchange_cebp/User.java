@@ -6,15 +6,26 @@ public class User {
     private String status;
     private String budget;
     private String company;
+    private String password;
 
     public User() {}
 
-    public User(String id, String name, String status, String budget, String company) {
+    public User(String id, String name, String status, String budget, String company, String password) {
         this.id = id;
         this.name = name;
         this.status = status;
         this.budget = budget;
         this.company = company;
+        this.password = password;
+    }
+
+
+    public String getUsername() {
+        return this.name;
+    }
+
+    public String getPassword() {
+        return this.password;
     }
 
     public String getId() { return id; }
