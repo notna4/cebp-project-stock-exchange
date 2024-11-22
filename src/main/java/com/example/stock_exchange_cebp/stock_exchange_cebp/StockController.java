@@ -249,6 +249,65 @@ public class StockController {
         return futureResponse;
     }
 
+
+    @GetMapping("/all")
+    public CompletableFuture<Map<String, Object>> getAllStocks() {
+        DatabaseReference ref = firebaseService.getDatabase().child("stocks");
+
+        final Map<String, Object> stocks = new HashMap<>();
+
+        CompletableFuture<Map<String, Object>> futureStocks = new CompletableFuture<>();
+
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                        stocks.put(userSnapshot.getKey(), userSnapshot.getValue());
+                    }
+                } else {
+                    stocks.put("message", "No users found");
+                }
+                futureStocks.complete(stocks);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                stocks.put("error", "Error retrieving users: " + error.getMessage());
+                futureStocks.complete(stocks);
+            }
+        });
+
+        return futureStocks;
+    }
+
+    @GetMapping("/wallet")
+    public CompletableFuture<Map<String, Object>> getWallet(@RequestParam String userId) {
+        CompletableFuture<Map<String, Object>> futureResponse = new CompletableFuture<>();
+        Map<String, Object> response = new HashMap<>();
+
+        if (userId == null || userId.isEmpty()) {
+            response.put("error", "Invalid userId provided.");
+            futureResponse.complete(response);
+            return futureResponse;
+        }
+
+        DatabaseReference walletRef = firebaseService.getDatabase().child("wallets").child(userId);
+
+        getAllWalletById(walletRef, wallet -> {
+            if (wallet != null) {
+                response.put("success", true);
+                response.put("wallet", wallet);
+                futureResponse.complete(response);
+            } else {
+                response.put("error", "Wallet not found for the given userId.");
+                futureResponse.complete(response);
+            }
+        });
+
+        return futureResponse;
+    }
+
     public interface UserExistsCallback {
         void onResult(User exists);
     }
@@ -283,6 +342,30 @@ public class StockController {
                 if (dataSnapshot.exists()) {
                     Stock stock = dataSnapshot.getValue(Stock.class);
                     callback.onResult(stock); // Pass the retrieved stock to the callback
+                } else {
+                    callback.onResult(null); // Return null if no stock is found
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                callback.onResult(null); // Return null in case of an error
+            }
+        });
+    }
+
+    // not working yet
+    public interface AllWalletCallback {
+        void onResult(Map<String, Wallet> companyWallets);
+    }
+
+    public void getAllWalletById(DatabaseReference walletRef, AllWalletCallback callback) {
+        walletRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    AllWallet allWallet = dataSnapshot.getValue(AllWallet.class);
+                    callback.onResult(allWallet != null ? allWallet.getCompanyWallets() : null); // Pass the retrieved stock to the callback
                 } else {
                     callback.onResult(null); // Return null if no stock is found
                 }
