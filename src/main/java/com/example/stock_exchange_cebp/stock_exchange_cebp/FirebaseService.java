@@ -18,7 +18,7 @@ public class FirebaseService {
     @PostConstruct
     public void initialize() throws IOException {
         try {
-            FileInputStream serviceAccount = new FileInputStream("src/main/resources/config/msa-db-firebase-adminsdk-i1cob-bf3faa8aea.json");
+            FileInputStream serviceAccount = new FileInputStream("src/main/resources/config/msa-db-firebase-adminsdk-i1cob-02f39d5b2c.json");
 
             FirebaseOptions options = new FirebaseOptions.Builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
