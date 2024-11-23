@@ -1,16 +1,12 @@
 package com.example.stock_exchange_cebp.stock_exchange_cebp;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.locks.ReentrantLock;
 
 @RestController
@@ -282,9 +278,10 @@ public class StockController {
     }
 
     @GetMapping("/wallet")
-    public CompletableFuture<Map<String, Object>> getWallet(@RequestParam String userId) {
+    public CompletableFuture<Map<String, Object>> getWallet(@RequestBody Map<String, Object> request) {
         CompletableFuture<Map<String, Object>> futureResponse = new CompletableFuture<>();
         Map<String, Object> response = new HashMap<>();
+        String userId = (String) request.get("userId");
 
         if (userId == null || userId.isEmpty()) {
             response.put("error", "Invalid userId provided.");
@@ -306,6 +303,34 @@ public class StockController {
         });
 
         return futureResponse;
+    }
+
+    @GetMapping("/lastXTransactions")
+    public List<Map<String, Object>> getLastXTransactions(@RequestBody Map<String, Object> request) throws ExecutionException, InterruptedException {
+        DatabaseReference databaseRef = FirebaseDatabase.getInstance().getReference("transactions");
+        int number = (int) request.get("numberToGet");
+        Query query = databaseRef.orderByChild("timestamp").limitToLast(number);
+
+        CompletableFuture<List<Map<String, Object>>> future = new CompletableFuture<>();
+
+        query.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                List<Map<String, Object>> items = new ArrayList<>();
+                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                    items.add((Map<String, Object>) snapshot.getValue());
+                }
+                Collections.reverse(items); // Reverse to get descending order
+                future.complete(items);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                future.completeExceptionally(databaseError.toException());
+            }
+        });
+
+        return future.get(); // Wait for Firebase query to complete
     }
 
     public interface UserExistsCallback {
@@ -364,8 +389,10 @@ public class StockController {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
-                    AllWallet allWallet = dataSnapshot.getValue(AllWallet.class);
-                    callback.onResult(allWallet != null ? allWallet.getCompanyWallets() : null); // Pass the retrieved stock to the callback
+                    Map<String, Wallet> auxWallet = (Map<String, Wallet>) dataSnapshot.getValue();
+
+//                    AllWallet allWallet = dataSnapshot.getValue(AllWallet.class);
+                    callback.onResult(auxWallet); // Pass the retrieved stock to the callback
                 } else {
                     callback.onResult(null); // Return null if no stock is found
                 }
