@@ -11,16 +11,22 @@ public class User {
     private Long budget;
     private String company;
     private String password;
+    private String email;
 
     public User() {}
 
-    public User(String id, String name, String status, Long budget, String company, String password) {
+    public User(String id, String name, String status, Long budget, String company, String password, String email) {
         this.id = id;
         this.name = name;
         this.status = status;
         this.budget = budget;
         this.company = company;
         this.password = password;
+        this.email = email;
+    }
+
+    public String getEmail() {
+        return this.email;
     }
 
     public String getUsername() {
