@@ -17,27 +17,35 @@ public class StockController {
     private FirebaseService firebaseService;
 
     @PostMapping("/create")
-    public Map<String, String> createStock(@RequestBody Map<String, Object> request) {
+    public CompletableFuture<Map<String, String>> createStock(@RequestBody Map<String, Object> request) {
         Map<String, String> response = new HashMap<>();
+        CompletableFuture<Map<String, String>> futureResponse = new CompletableFuture<>();
 
         String userId = (String) request.get("userId");
         String companyId = (String) request.get("companyId");
         Integer pricePerShare = (Integer) request.get("pricePerShare");
         Integer sharesCounter = (Integer) request.get("sharesCounter");
 
-        if (!isAdmin(userId)) {
-            response.put("error", "You are not authorized to create a stock offer.");
-            return response;
-        }
+        DatabaseReference userRef = firebaseService.getDatabase().child("users").child(userId);
 
-        Stock stock = new Stock(companyId, pricePerShare, sharesCounter);
+        getUserById(userRef, user -> {
+            if (user != null && user.getStatus().equals("admin")) {
 
-        String stockId = UUID.randomUUID().toString();
-        DatabaseReference ref = firebaseService.getDatabase().child("stocks").child(stockId);
-        ref.setValueAsync(stock);
+                Stock stock = new Stock(companyId, pricePerShare, sharesCounter);
 
-        response.put("success", "Stock offer created successfully with ID: " + stockId);
-        return response;
+                String stockId = UUID.randomUUID().toString();
+                DatabaseReference ref = firebaseService.getDatabase().child("stocks").child(stockId);
+                ref.setValueAsync(stock);
+
+                response.put("success", "Stock offer created successfully with ID: " + stockId);
+                futureResponse.complete(response);
+            } else {
+                response.put("error", "You are not authorized to create a stock offer.");
+                futureResponse.complete(response);
+
+            }
+        });
+        return futureResponse;
     }
 
 
@@ -277,7 +285,7 @@ public class StockController {
         return futureStocks;
     }
 
-    @GetMapping("/wallet")
+    @PostMapping("/wallet")
     public CompletableFuture<Map<String, Object>> getWallet(@RequestBody Map<String, Object> request) {
         CompletableFuture<Map<String, Object>> futureResponse = new CompletableFuture<>();
         Map<String, Object> response = new HashMap<>();
@@ -305,7 +313,38 @@ public class StockController {
         return futureResponse;
     }
 
-    @GetMapping("/lastXTransactions")
+    @GetMapping("/getAllTransactions")
+    public CompletableFuture<Map<String, Object>> getAllTransactions() {
+        DatabaseReference ref = firebaseService.getDatabase().child("transactions");
+
+        final Map<String, Object> transactions = new HashMap<>();
+
+        CompletableFuture<Map<String, Object>> futureTransactions = new CompletableFuture<>();
+
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                        transactions.put(userSnapshot.getKey(), userSnapshot.getValue());
+                    }
+                } else {
+                    transactions.put("message", "No transactions found");
+                }
+                futureTransactions.complete(transactions);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                transactions.put("error", "Error retrieving transactions: " + error.getMessage());
+                futureTransactions.complete(transactions);
+            }
+        });
+
+        return futureTransactions;
+    }
+
+    @PostMapping("/lastXTransactions")
     public List<Map<String, Object>> getLastXTransactions(@RequestBody Map<String, Object> request) throws ExecutionException, InterruptedException {
         DatabaseReference databaseRef = FirebaseDatabase.getInstance().getReference("transactions");
         int number = (int) request.get("numberToGet");
@@ -352,6 +391,29 @@ public class StockController {
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 callback.onResult(null); // Return false on error
+            }
+        });
+    }
+
+    public interface UserCallback {
+        void onResult(User user);
+    }
+
+    public void getUserById(DatabaseReference stockRef, UserCallback callback) {
+        stockRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    User user = dataSnapshot.getValue(User.class);
+                    callback.onResult(user); // Pass the retrieved stock to the callback
+                } else {
+                    callback.onResult(null); // Return null if no stock is found
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                callback.onResult(null); // Return null in case of an error
             }
         });
     }

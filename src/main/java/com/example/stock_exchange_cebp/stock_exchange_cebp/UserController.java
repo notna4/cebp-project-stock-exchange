@@ -21,18 +21,21 @@ public class UserController {
     private FirebaseService firebaseService;
 
     @PostMapping("/login")
-    public CompletableFuture<Boolean> loginUser(@RequestBody Map<String, String> credentials) {
+    public CompletableFuture<Map<Boolean, String>> loginUser(@RequestBody Map<String, String> credentials) {
         String username = credentials.get("username");
         String password = credentials.get("password");
 
+        final Map<Boolean, String> resp = new HashMap<>();
+
         if (username == null || password == null) {
-            CompletableFuture<Boolean> future = new CompletableFuture<>();
-            future.complete(false);
+            CompletableFuture<Map<Boolean, String>> future = new CompletableFuture<>();
+            resp.put(false, "No id");
+            future.complete(resp);
             return future;
         }
 
         DatabaseReference ref = firebaseService.getDatabase().child("users");
-        CompletableFuture<Boolean> loginResult = new CompletableFuture<>();
+        CompletableFuture<Map<Boolean, String>> loginResult = new CompletableFuture<>();
 
         ref.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -43,18 +46,20 @@ public class UserController {
                     for (DataSnapshot userSnapshot : snapshot.getChildren()) {
                         User user = userSnapshot.getValue(User.class);
                         if (user != null && username.equals(user.getUsername()) && password.equals(user.getPassword())) {
+                            resp.put(true, user.getId());
                             found = true;
                             break;
                         }
                     }
                 }
 
-                loginResult.complete(found);
+                loginResult.complete(resp);
             }
 
             @Override
             public void onCancelled(DatabaseError error) {
-                loginResult.complete(false); // Return false if there's an error during the database operation
+                resp.put(false, "No id.");
+                loginResult.complete(resp); // Return false if there's an error during the database operation
             }
         });
 
