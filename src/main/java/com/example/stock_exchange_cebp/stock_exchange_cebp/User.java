@@ -12,10 +12,11 @@ public class User {
     private String company;
     private String password;
     private String email;
+    private Boolean blocked;
 
     public User() {}
 
-    public User(String id, String name, String status, Long budget, String company, String password, String email) {
+    public User(String id, String name, String status, Long budget, String company, String password, String email, Boolean blocked) {
         this.id = id;
         this.name = name;
         this.status = status;
@@ -23,6 +24,15 @@ public class User {
         this.company = company;
         this.password = password;
         this.email = email;
+        this.blocked = blocked;
+    }
+
+    public Boolean getBlocked() {
+        return this.blocked;
+    }
+
+    public void setBlocked(Boolean blocked) {
+        this.blocked = blocked;
     }
 
     public String getEmail() {
@@ -36,6 +46,11 @@ public class User {
     public String getPassword() {
         return this.password;
     }
+
+
+    public void setPassword(String password) { this.password = password; }
+    public void setEmail(String email) { this.email = email; }
+
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }

@@ -158,7 +158,7 @@ public class StockController {
 
 
                                         Map<String, String> walletData = new HashMap<>();
-
+                                        existingWallet.put("companyId", companyId);
                                         existingWallet.put("shares", String.valueOf(numberOfShares + Integer.parseInt(wallet1.getShares())));
                                         existingWallet.put("totalPaid", String.valueOf(paidAmount + Integer.parseInt(wallet1.getTotalPaid())));
                                         walletRef.updateChildren(existingWallet, (error, ref) -> {
