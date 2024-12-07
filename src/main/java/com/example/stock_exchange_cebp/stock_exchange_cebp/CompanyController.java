@@ -19,6 +19,7 @@ public class CompanyController {
     @Autowired
     private FirebaseService firebaseService;
 
+    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/create")
     public String createCompany(@RequestBody Company company) {
         String id = UUID.randomUUID().toString();
@@ -30,6 +31,7 @@ public class CompanyController {
         return "Company created with ID: " + id;
     }
 
+    @CrossOrigin(origins = "http://localhost:3000")
     @GetMapping("/all")
     public CompletableFuture<Map<String, Object>> getAllCompanies() {
         DatabaseReference ref = firebaseService.getDatabase().child("companies");

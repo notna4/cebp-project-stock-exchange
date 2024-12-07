@@ -20,6 +20,7 @@ public class UserController {
     @Autowired
     private FirebaseService firebaseService;
 
+    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/edit")
     public CompletableFuture<Map<Boolean, String>> editUser(@RequestBody Map<String, Object> updates) {
         String userId = (String) updates.get("id");
@@ -103,7 +104,7 @@ public class UserController {
         return futureResponse;
     }
 
-
+    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/login")
     public CompletableFuture<Map<Boolean, String>> loginUser(@RequestBody Map<String, String> credentials) {
         String username = credentials.get("username");
@@ -150,7 +151,7 @@ public class UserController {
         return loginResult;
     }
 
-
+    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/create")
     public String createUser(@RequestBody User user) {
         String id = UUID.randomUUID().toString();
@@ -162,6 +163,7 @@ public class UserController {
         return "User created with id: " + id;
     }
 
+    @CrossOrigin(origins = "http://localhost:3000")
     @GetMapping("/all")
     public CompletableFuture<Map<String, Object>> getAllUsers() {
         DatabaseReference ref = firebaseService.getDatabase().child("users");

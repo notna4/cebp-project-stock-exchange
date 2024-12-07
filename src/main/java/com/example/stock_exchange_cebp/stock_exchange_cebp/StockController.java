@@ -16,6 +16,7 @@ public class StockController {
     @Autowired
     private FirebaseService firebaseService;
 
+    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/create")
     public CompletableFuture<Map<String, String>> createStock(@RequestBody Map<String, Object> request) {
         Map<String, String> response = new HashMap<>();
@@ -48,49 +49,58 @@ public class StockController {
         return futureResponse;
     }
 
-
+    @CrossOrigin(origins = "http://localhost:3000")
     @PutMapping("/edit")
-    public Map<String, String> editStock(@RequestBody Map<String, Object> request) {
+    public CompletableFuture<Map<String, String>> editStock(@RequestBody Map<String, Object> request) {
         Map<String, String> response = new HashMap<>();
+        CompletableFuture<Map<String, String>> futureResponse = new CompletableFuture<>();
 
         String userId = (String) request.get("userId");
         String stockId = (String) request.get("stockId");
         Integer pricePerShare = (Integer) request.get("pricePerShare");
         Integer sharesCounter = (Integer) request.get("sharesCounter");
 
-        if (!isAdmin(userId)) {
-            response.put("error", "You are not authorized to edit the stock offer.");
-            return response;
-        }
+        isAdmin(userId).thenAccept(isAdmin -> {
+            if (!isAdmin) {
+                response.put("error", "You are not authorized to edit the stock offer.");
+                futureResponse.complete(response);
+            } else {
+                ReentrantLock lock = new ReentrantLock();
 
-        ReentrantLock lock = new ReentrantLock();
+                lock.lock();
+                try {
+                    DatabaseReference stockRef = firebaseService.getDatabase().child("stocks").child(stockId);
 
-        lock.lock();
-        try {
-            DatabaseReference stockRef = firebaseService.getDatabase().child("stocks").child(stockId);
+                    Map<String, Object> updatedFields = new HashMap<>();
+                    if (pricePerShare != null) {
+                        updatedFields.put("pricePerShare", pricePerShare);
+                    }
+                    if (sharesCounter != null) {
+                        updatedFields.put("sharesCounter", sharesCounter);
+                    }
 
-            Map<String, Object> updatedFields = new HashMap<>();
-            if (pricePerShare != null) {
-                updatedFields.put("pricePerShare", pricePerShare);
-            }
-            if (sharesCounter != null) {
-                updatedFields.put("sharesCounter", sharesCounter);
-            }
-
-            stockRef.updateChildren(updatedFields, (error, ref) -> {
-                if (error != null) {
-                    response.put("error", "Error updating stock: " + error.getMessage());
-                } else {
-                    response.put("success", "Stock updated successfully with ID: " + stockId);
+                    stockRef.updateChildren(updatedFields, (error, ref) -> {
+                        if (error != null) {
+                            response.put("error", "Error updating stock: " + error.getMessage());
+                        } else {
+                            response.put("success", "Stock updated successfully with ID: " + stockId);
+                        }
+                        futureResponse.complete(response);
+                    });
+                } finally {
+                    lock.unlock();
                 }
-            });
-        } finally {
-            lock.unlock();
-        }
+            }
+        }).exceptionally(ex -> {
+            response.put("error", "Error checking admin status: " + ex.getMessage());
+            futureResponse.complete(response);
+            return null;
+        });
 
-        return response;
+        return futureResponse;
     }
 
+    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/buy")
     public CompletableFuture<Map<String, String>> buyStock(@RequestBody Map<String, Object> request) {
         CompletableFuture<Map<String, String>> futureResponse = new CompletableFuture<>();
@@ -253,7 +263,7 @@ public class StockController {
         return futureResponse;
     }
 
-
+    @CrossOrigin(origins = "http://localhost:3000")
     @GetMapping("/all")
     public CompletableFuture<Map<String, Object>> getAllStocks() {
         DatabaseReference ref = firebaseService.getDatabase().child("stocks");
@@ -285,6 +295,7 @@ public class StockController {
         return futureStocks;
     }
 
+    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/wallet")
     public CompletableFuture<Map<String, Object>> getWallet(@RequestBody Map<String, Object> request) {
         CompletableFuture<Map<String, Object>> futureResponse = new CompletableFuture<>();
@@ -313,6 +324,7 @@ public class StockController {
         return futureResponse;
     }
 
+    @CrossOrigin(origins = "http://localhost:3000")
     @GetMapping("/getAllTransactions")
     public CompletableFuture<Map<String, Object>> getAllTransactions() {
         DatabaseReference ref = firebaseService.getDatabase().child("transactions");
@@ -344,6 +356,7 @@ public class StockController {
         return futureTransactions;
     }
 
+    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/lastXTransactions")
     public List<Map<String, Object>> getLastXTransactions(@RequestBody Map<String, Object> request) throws ExecutionException, InterruptedException {
         DatabaseReference databaseRef = FirebaseDatabase.getInstance().getReference("transactions");
@@ -520,7 +533,29 @@ public class StockController {
 
 
     // I have to implement this after
-    private boolean isAdmin(String userId) {
-        return "7bb1d813-cd11-46f7-877d-ab3d3aab8f44".equals(userId);
-    }
+
+
+        private CompletableFuture<Boolean> isAdmin(String userId) {
+            CompletableFuture<Boolean> futureResponse = new CompletableFuture<>();
+            DatabaseReference ref = firebaseService.getDatabase().child("users").child(userId);
+
+            ref.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot snapshot) {
+                    if (snapshot.exists()) {
+                        User user = snapshot.getValue(User.class);
+                        futureResponse.complete(user != null && "admin".equals(user.getStatus()));
+                    } else {
+                        futureResponse.complete(false);
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError error) {
+                    futureResponse.completeExceptionally(new RuntimeException("Database error: " + error.getMessage()));
+                }
+            });
+
+            return futureResponse;
+        }
 }
